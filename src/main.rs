@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use send::{ApiPool, Sender};
 use t_types::users_service_client::UsersServiceClient;
 use t_types::{GetAccountsRequest, MoneyValue, PortfolioRequest};
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
@@ -66,13 +67,10 @@ fn print_money(name: &str, m: &MoneyValue) {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token = std::env::var("TOKEN")?;
-    let mut s = tonic::client::Grpc::create_invest_service(token)?;
-    let mut client = UsersServiceClient::from(s);
-    let accounts = client.get_accounts(GetAccountsRequest::default()).await?.into_inner();
-    println!("accounts: {accounts:?}");
-    s = client.into();
-    let mut client = OperationsServiceClient::from(s);
-    let portfolio = client.get_portfolio(PortfolioRequest { account_id: accounts.accounts[0].id.clone(), currency: None }).await?.into_inner();
+    let api = tonic::client::Grpc::create_invest_service(token)?;
+    let pool = ApiPool::new(api);
+    let accounts = pool.send(GetAccountsRequest::default()).await?;
+    let portfolio = pool.send(PortfolioRequest { account_id: accounts.accounts[0].id.clone(), currency: None }).await?;
     portfolio.total_amount_portfolio.as_ref().map(|m|print_money("total", m));
     portfolio.daily_yield.as_ref().map(|m|print_money("daily yeld", m));
     println!();
