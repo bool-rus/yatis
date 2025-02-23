@@ -1,7 +1,5 @@
-use std::time::Duration;
 
 use send::{ApiPool, Sender};
-use t_types::users_service_client::UsersServiceClient;
 use t_types::{GetAccountsRequest, MoneyValue, PortfolioRequest};
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
 use tonic::service::interceptor::InterceptedService;
@@ -13,9 +11,6 @@ use tonic::client::Grpc;
 
 mod t_types;
 mod send;
-
-pub use t_types::market_data_service_client::MarketDataServiceClient;
-use t_types::operations_service_client::OperationsServiceClient;
 
 pub type IService = InterceptedService<Channel, TokenInterceptor>;
 pub trait InvestService: Sized {

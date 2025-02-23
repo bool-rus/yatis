@@ -1,18 +1,11 @@
-use std::error::Error;
 use std::future::Future;
-use async_trait::async_trait;
-
-use futures::FutureExt;
 use tonic::client::Grpc;
 
-use crate::{IService, InvestService};
+use crate::IService;
 use crate::t_types::{GetAccountsRequest, GetAccountsResponse};
 
 
 type Api = Grpc<IService>;
-
-
-
 pub struct ApiPool(deadqueue::unlimited::Queue<Api>);
 
 impl ApiPool {
@@ -55,8 +48,12 @@ macro_rules! sender_impl {
 }
 
 use crate::t_types::instruments_service_client::InstrumentsServiceClient;
-use crate::t_types::users_service_client::UsersServiceClient;
 use crate::t_types::operations_service_client::OperationsServiceClient;
+use crate::t_types::market_data_service_client::MarketDataServiceClient;
+use crate::t_types::orders_service_client::OrdersServiceClient;
+use crate::t_types::signal_service_client::SignalServiceClient;
+use crate::t_types::stop_orders_service_client::StopOrdersServiceClient;
+use crate::t_types::users_service_client::UsersServiceClient;
 
 use crate::t_types::*;
 sender_impl![
@@ -86,11 +83,25 @@ sender_impl![
     GetDividendsResponse = InstrumentsServiceClient:get_dividends(GetDividendsRequest),
     GetFavoriteGroupsResponse = InstrumentsServiceClient:get_favorite_groups(GetFavoriteGroupsRequest),
     GetFavoritesResponse = InstrumentsServiceClient:get_favorites(GetFavoritesRequest),
+    GetForecastResponse = InstrumentsServiceClient:get_forecast_by(GetForecastRequest),
+    GetFuturesMarginResponse = InstrumentsServiceClient:get_futures_margin(GetFuturesMarginRequest),
+    InstrumentResponse = InstrumentsServiceClient:get_instrument_by(InstrumentRequest),
+    RiskRatesResponse = InstrumentsServiceClient:get_risk_rates(RiskRatesRequest),
+    IndicativesResponse = InstrumentsServiceClient:indicatives(IndicativesRequest),
+    OptionResponse = InstrumentsServiceClient:option_by(InstrumentRequest),
+    OptionsResponse = InstrumentsServiceClient:options_by(FilterOptionsRequest),
+    ShareResponse = InstrumentsServiceClient:share_by(InstrumentRequest),
+    SharesResponse = InstrumentsServiceClient:shares(InstrumentsRequest),
+    TradingSchedulesResponse = InstrumentsServiceClient:trading_schedules(TradingSchedulesRequest),
 
-    GetAccountsResponse = UsersServiceClient:get_accounts(GetAccountsRequest),
-    GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
-    GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
-    GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
+    GetCandlesResponse = MarketDataServiceClient:get_candles(GetCandlesRequest),
+    GetClosePricesResponse = MarketDataServiceClient:get_close_prices(GetClosePricesRequest),
+    GetLastPricesResponse = MarketDataServiceClient:get_last_prices(GetLastPricesRequest),
+    GetLastTradesResponse = MarketDataServiceClient:get_last_trades(GetLastTradesRequest),
+    GetOrderBookResponse = MarketDataServiceClient:get_order_book(GetOrderBookRequest),
+    GetTechAnalysisResponse = MarketDataServiceClient:get_tech_analysis(GetTechAnalysisRequest),
+    GetTradingStatusResponse = MarketDataServiceClient:get_trading_status(GetTradingStatusRequest),
+    GetTradingStatusesResponse = MarketDataServiceClient:get_trading_statuses(GetTradingStatusesRequest),
     
     GetDividendsForeignIssuerResponse = OperationsServiceClient:get_dividends_foreign_issuer(GetDividendsForeignIssuerRequest),
     OperationsResponse = OperationsServiceClient:get_operations(OperationsRequest),
@@ -99,5 +110,26 @@ sender_impl![
     PositionsResponse = OperationsServiceClient:get_positions(PositionsRequest),
     WithdrawLimitsResponse = OperationsServiceClient:get_withdraw_limits(WithdrawLimitsRequest),
 
+    CancelOrderResponse = OrdersServiceClient:cancel_order(CancelOrderRequest),
+    GetMaxLotsResponse = OrdersServiceClient:get_max_lots(GetMaxLotsRequest),
+    GetOrderPriceResponse = OrdersServiceClient:get_order_price(GetOrderPriceRequest),
+    OrderState = OrdersServiceClient:get_order_state(GetOrderStateRequest),
+    GetOrdersResponse = OrdersServiceClient:get_orders(GetOrdersRequest),
+    PostOrderResponse = OrdersServiceClient:post_order(PostOrderRequest),
+    PostOrderAsyncResponse = OrdersServiceClient:post_order_async(PostOrderAsyncRequest),
+    PostOrderResponse = OrdersServiceClient:replace_order(ReplaceOrderRequest),
+
+    GetSignalsResponse = SignalServiceClient:get_signals(GetSignalsRequest),
+    GetStrategiesResponse = SignalServiceClient:get_strategies(GetStrategiesRequest),
+
+    CancelStopOrderResponse = StopOrdersServiceClient:cancel_stop_order(CancelStopOrderRequest),
+    GetStopOrdersResponse = StopOrdersServiceClient:get_stop_orders(GetStopOrdersRequest),
+    PostStopOrderResponse = StopOrdersServiceClient:post_stop_order(PostStopOrderRequest),
+
+    GetAccountsResponse = UsersServiceClient:get_accounts(GetAccountsRequest),
+    GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
+    GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
+    GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
+    
 
 ];
