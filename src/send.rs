@@ -3,9 +3,9 @@ use tonic::client::Grpc;
 
 use crate::IService;
 use crate::t_types::{GetAccountsRequest, GetAccountsResponse};
+use crate::Api;
 
 
-type Api = Grpc<IService>;
 pub struct ApiPool(deadqueue::unlimited::Queue<Api>);
 
 impl ApiPool {
@@ -17,7 +17,7 @@ impl ApiPool {
         Self(q)
     }
     pub fn new(api: Api) -> Self {
-        Self::with_capacity(api, 10)
+        Self::with_capacity(api, 1)
     }
     pub async fn with_api<T, Fut: Future<Output=(impl Into<Api>, T)>, Fun: FnOnce(Api) -> Fut>(&self, fun: Fun) -> T where T: Send+Sized {
         let api = self.0.pop().await;
@@ -130,6 +130,4 @@ sender_impl![
     GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
     GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
     GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
-    
-
 ];
