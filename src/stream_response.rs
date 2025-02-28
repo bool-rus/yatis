@@ -1,10 +1,11 @@
 use crate::t_types::*;
+pub use order_state_stream_response::OrderState as OrderStateResponse;
 
 #[derive(Debug, Clone)]
 pub enum StreamResponse {
     Ping,
     OrderTrades(OrderTrades),
-    SubscriptionResponse(SubscriptionResponse),
+    TradesSubscription(SubscriptionResponse),
     LastPrice(LastPrice),
     SubscribeCandlesResponse(SubscribeCandlesResponse),
     SubscribeOrderBookResponse(SubscribeOrderBookResponse),
@@ -17,6 +18,11 @@ pub enum StreamResponse {
     Orderbook(OrderBook),
     TradingStatus(TradingStatus),
     PortfolioResponse(PortfolioResponse),
+    MyTradesSubscription(SubscriptionResponse),
+    OrderState(OrderStateResponse),
+    Position(PositionData),
+    PositionsSubscriptions(PositionsSubscriptionResult),
+    InitialPositions(PositionsResponse),
 }
 
 impl From<MarketDataResponse> for StreamResponse {
@@ -42,7 +48,7 @@ impl From<TradesStreamResponse> for StreamResponse {
         use trades_stream_response::Payload;
         match value.payload {
             Some(Payload::OrderTrades(x)) => Self::OrderTrades(x),
-            Some(Payload::Subscription(x)) => Self::SubscriptionResponse(x),
+            Some(Payload::Subscription(x)) => Self::TradesSubscription(x),
             None | Some(Payload::Ping(_)) => Self::Ping,
         }
     }
@@ -51,10 +57,33 @@ impl From<TradesStreamResponse> for StreamResponse {
 impl From<PortfolioStreamResponse> for StreamResponse {
     fn from(value: PortfolioStreamResponse) -> Self {
         use portfolio_stream_response::Payload;
-        match value.payload.unwrap() {
-            Payload::Subscriptions(x) => Self::PortfolioSubscriptionResult(x),
-            Payload::Portfolio(x) => Self::PortfolioResponse(x),
-            Payload::Ping(_) => Self::Ping,
+        match value.payload {
+            Some(Payload::Subscriptions(x)) => Self::PortfolioSubscriptionResult(x),
+            Some(Payload::Portfolio(x)) => Self::PortfolioResponse(x),
+            None | Some(Payload::Ping(_)) => Self::Ping,
+        }
+    }
+}
+
+impl From<PositionsStreamResponse> for StreamResponse {
+    fn from(value: PositionsStreamResponse) -> Self {
+        use positions_stream_response::Payload;
+        match value.payload {
+            Some(Payload::Subscriptions(x)) => Self::PositionsSubscriptions(x),
+            Some(Payload::Position(x)) => Self::Position(x),
+            Some(Payload::InitialPositions(x)) => Self::InitialPositions(x),
+            None | Some(Payload::Ping(_)) => Self::Ping,
+        }
+    }
+}
+
+impl From<OrderStateStreamResponse> for StreamResponse {
+    fn from(value: OrderStateStreamResponse) -> Self {
+        use order_state_stream_response::Payload;
+        match value.payload {
+            Some(Payload::OrderState(x)) => Self::OrderState(x),
+            Some(Payload::Subscription(x)) => Self::MyTradesSubscription(x),
+            None | Some(Payload::Ping(_)) => Self::Ping,
         }
     }
 }
