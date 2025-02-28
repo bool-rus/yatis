@@ -102,11 +102,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //let mut client = OrdersStreamServiceClient::from(api.clone());
     //let mut client = MarketDataStreamServiceClient::from(api.clone());
 
-    pool.get().await.start_stream(TradesStreamRequest { 
+    pool.start_stream(TradesStreamRequest { 
         accounts: accounts.accounts.iter().map(|a|a.id.clone()).collect(), 
         ping_delay_ms: Some(7000), 
     }, s.clone()).await?;
-    pool.get().await.start_stream(PortfolioStreamRequest{ 
+    pool.start_stream(PortfolioStreamRequest{ 
         accounts: accounts.accounts.iter().map(|a|a.id.clone()).collect(), 
         ping_settings: Some(PingDelaySettings { ping_delay_ms: Some(5000) }), 
     }, s.clone()).await?;

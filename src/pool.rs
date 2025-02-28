@@ -1,6 +1,9 @@
 
 use std::future::Future;
 
+use tokio::task::JoinHandle;
+
+use crate::stream::StartStream;
 use crate::Api;
 use crate::send::Sender;
 
@@ -40,5 +43,15 @@ impl<Req, Res> Sender<Req, Res> for &ApiPool where Api: Sender<Req, Res>, Req: S
         self.with_api(move |api|Box::pin(async move {
             api.send_and_back(req).await
         }))
+    }
+}
+
+impl<Req,T> StartStream<Req,T> for &ApiPool where Api: StartStream<Req, T> {
+    fn start_stream(self, req: Req, sender: tokio::sync::broadcast::Sender<T>) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> {
+        Box::pin(async move {
+            let api = self.0.pop().await;
+            self.0.push(api.clone());
+            api.start_stream(req, sender).await
+        })
     }
 }
