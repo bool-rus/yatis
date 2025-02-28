@@ -6,48 +6,24 @@ use crate::t_types::{GetAccountsRequest, GetAccountsResponse};
 use crate::Api;
 
 
-pub struct ApiPool(deadqueue::unlimited::Queue<Api>);
 
-impl ApiPool {
-    pub fn with_capacity(api: Api, capacity: usize) -> Self {
-        let q = deadqueue::unlimited::Queue::new();
-        for _ in 0..capacity {
-            q.push(api.clone());
-        }
-        Self(q)
+pub trait Sender<Req, Res> where Self: Sized {
+    type Error;
+    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)>;
+    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+        Box::pin(async move {self.send_and_back(req).await.1})
     }
-    pub fn new(api: Api) -> Self {
-        Self::with_capacity(api, 1)
-    }
-    pub async fn get(&self) -> Api {
-        let res = self.0.pop().await;
-        self.0.push(res.clone());
-        res
-    }
-    pub async fn with_api<T, Fut: Future<Output=(impl Into<Api>, T)>, Fun: FnOnce(Api) -> Fut>(&self, fun: Fun) -> T where T: Send+Sized {
-        let api = self.0.pop().await;
-        let (api, res) = fun(api).await;
-        self.0.push(api.into());
-        res
-    }
-}
-
-
-pub trait Sender<Req, Res> {
-    fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
 macro_rules! sender_impl {
     ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {$(
-        impl Sender<$req, $res> for ApiPool {
-        
-            fn send(&self, req: $req) -> impl Future<Output = Result<$res, tonic::Status>> { 
-                self.with_api(move |api|Box::pin(async move {
-                    let mut client = $client::from(api);
-                    let r = client.$method(req).await.map(|r|r.into_inner());
-                    (client, r)
-                }))
-            }
+        impl Sender<$req,$res> for Api {
+            type Error = tonic::Status;
+            fn send_and_back(self, req: $req) -> impl Future<Output = (Self,Result<$res, tonic::Status>)> {Box::pin(async move {
+                let mut client = $client::from(self);
+                let r = client.$method(req).await.map(|r|r.into_inner());
+                (client.into(), r)
+            })}
         }
     )+}
 }

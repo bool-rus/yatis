@@ -1,7 +1,8 @@
 
 use std::time::Duration;
 
-use send::{ApiPool, Sender};
+use pool::ApiPool;
+use send::Sender;
 use stream::{StartStream, StreamHolder};
 use stream_response::StreamResponse;
 use t_types::market_data_stream_service_client::MarketDataStreamServiceClient;
@@ -24,6 +25,7 @@ mod t_types;
 mod send;
 mod stream;
 mod stream_response;
+mod pool;
 
 pub type IService = InterceptedService<Channel, TokenInterceptor>;
 pub trait InvestService: Sized {
