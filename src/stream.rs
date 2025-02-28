@@ -6,6 +6,9 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::t_types::market_data_stream_service_client::MarketDataStreamServiceClient;
+use crate::t_types::operations_stream_service_client::OperationsStreamServiceClient;
+use crate::t_types::orders_service_client::OrdersServiceClient;
+use crate::t_types::orders_stream_service_client::OrdersStreamServiceClient;
 use crate::t_types::*;
 use crate::Api;
 use async_channel::Sender;
@@ -77,24 +80,24 @@ impl<Req, Res> Drop for StreamHolder<Req, Res> {
     }
 }
 
-impl StreamHolder<MarketDataRequest, MarketDataResponse> {
-    pub async fn create(api: Api, broadcast: Broadcast<MarketDataResponse>) -> Result<Self, tonic::Status> {
-        let cache = Arc::new(Mutex::new(MarketCache::new()));
+impl<Res> StreamHolder<MarketDataRequest, Res> where Res: From<MarketDataResponse> + Send + 'static {
+    pub async fn create(api: Api, broadcast: Broadcast<Res>) -> Result<Self, tonic::Status> {
         use crate::t_types::market_data_request::Payload;
-        let (sender,r) = async_channel::unbounded();
         let timeout = Duration::from_secs(5);
         let req = MarketDataRequest { payload: Some(Payload::Ping(Default::default())) };
+        let (sender,r) = async_channel::unbounded();
         sender.send(req.clone()).await.unwrap();
-
+        
         let mut client = MarketDataStreamServiceClient::from(api.clone());
         let mut receiver = client.market_data_stream(r.clone()).await?.into_inner();
+        let cache = Arc::new(Mutex::new(MarketCache::new()));
         let inner = (sender.clone(), broadcast.clone(), cache.clone());
         let handle = tokio::spawn(async move {
             let (sender, broadcast, cache) = inner;
             loop {
                 match tokio::time::timeout(timeout, receiver.message()).await {
                     Ok(Ok(Some(response))) => {
-                        if broadcast.send(response).is_err() { break; }
+                        if broadcast.send(response.into()).is_err() { break; }
                         continue;
                     },
                     Ok(Ok(None)) => {
@@ -138,14 +141,94 @@ impl StreamHolder<MarketDataRequest, MarketDataResponse> {
     pub fn stop(&self) {
         self.handle.abort();
     }
-    pub fn subscribe(&self) -> Broadcast<MarketDataResponse> {
+    pub fn subscribe(&self) -> Broadcast<Res> {
         self.broadcast.clone()
     }
 }
 
-
-impl Clone for StreamHolder<MarketDataRequest, MarketDataResponse> {
-    fn clone(&self) -> Self {
-        todo!()
+trait PingDelayMs {
+    const NET_DELAY: u64 = 1000;
+    const DEFULT_PING_DELAY: u64 = 5000;
+    fn delay_ms(&self) -> u64 {
+        let delay = if let Some(delay) = self.invoke() {
+            delay as u64
+        } else {
+            Self::DEFULT_PING_DELAY
+        };
+        delay + Self::NET_DELAY
+    }
+    fn invoke(&self) -> std::option::Option<i32>;
+}
+impl PingDelayMs for TradesStreamRequest {
+    fn invoke(&self) -> std::option::Option<i32> {
+        self.ping_delay_ms
     }
 }
+impl PingDelayMs for OrderStateStreamRequest {
+    fn invoke(&self) -> std::option::Option<i32> {
+        self.ping_delay_millis
+    }
+}
+
+macro_rules! ping_from_ping_settings {
+    ($($res:ty,)+) => {$(
+        impl PingDelayMs for $res {
+            fn invoke(&self) -> std::option::Option<i32> {
+                self.ping_settings.map(|s|s.ping_delay_ms).flatten()
+            }
+        }
+    )+}
+}
+ping_from_ping_settings!(PortfolioStreamRequest, PositionsStreamRequest, MarketDataServerSideStreamRequest, );
+
+pub trait StartStream<Req, T> {
+    fn start_stream(self, req: Req, sender: Broadcast<T>) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
+}
+
+macro_rules! start_stream_impl {
+    ($($res:ty = $client:ident : $method:ident($req:ty),)+) => {$(
+        impl<T> StartStream<$req, T> for Api where T: From<$res> + Send + 'static {
+            fn start_stream(self, req: $req, broadcast: Broadcast<T>) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>> { Box::pin(async move {
+                let timeout = Duration::from_millis(req.delay_ms());
+                let mut client = $client::from(self.clone());
+                let mut receiver = client.$method(req.clone()).await?.into_inner();
+                let inner = broadcast.clone();
+                let handle = tokio::spawn(async move {
+                    let broadcast = inner;
+                    loop {
+                        match tokio::time::timeout(timeout, receiver.message()).await {
+                            Ok(Ok(Some(response))) => {
+                                if broadcast.send(response.into()).is_err() { break; }
+                                continue;
+                            },
+                            Ok(Ok(None)) => info!("none received, reconnecting..."),
+                            Ok(Err(e)) => log::error!("err {e:?}, reconnecting..."),
+                            Err(_) => info!("timeout, reconnecting..."),
+                        }
+                        let mut client = $client::from(self.clone());    
+                        let fut = client.$method(req.clone());
+                        match tokio::time::timeout(timeout, fut).await {
+                            Ok(Ok(x)) => {
+                                receiver = x.into_inner();
+                            }
+                            Ok(Err(x)) => {
+                                error!("err on reconnect: {x:?}");
+                                tokio::time::sleep(timeout).await;
+                            },
+                            Err(_) => warn!("timeout on reconnect"),
+                        }
+                    };
+                });
+                Ok(handle)
+            })}
+        }
+    )+}
+}
+
+start_stream_impl![
+    TradesStreamResponse = OrdersStreamServiceClient:trades_stream(TradesStreamRequest),
+    OrderStateStreamResponse = OrdersStreamServiceClient:order_state_stream(OrderStateStreamRequest),
+    PortfolioStreamResponse = OperationsStreamServiceClient:portfolio_stream(PortfolioStreamRequest),
+    PositionsStreamResponse = OperationsStreamServiceClient:positions_stream(PositionsStreamRequest),
+    MarketDataResponse = MarketDataStreamServiceClient:market_data_server_side_stream(MarketDataServerSideStreamRequest),
+];
