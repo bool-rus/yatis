@@ -4,27 +4,17 @@ use std::future::Future;
 use tokio::task::JoinHandle;
 
 use crate::stream::StartStream;
-use crate::Api;
 use crate::send::Sender;
 
-pub struct ApiPool(deadqueue::unlimited::Queue<Api>);
+pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
-impl ApiPool {
-    pub fn with_capacity(api: Api, capacity: usize) -> Self {
+impl<Api> ApiPool<Api> {
+    pub fn new(api: Api) -> Self {
         let q = deadqueue::unlimited::Queue::new();
-        for _ in 0..capacity {
-            q.push(api.clone());
-        }
+        q.push(api);
         Self(q)
     }
-    pub fn new(api: Api) -> Self {
-        Self::with_capacity(api, 1)
-    }
-    pub async fn get(&self) -> Api {
-        let res = self.0.pop().await;
-        self.0.push(res.clone());
-        res
-    }
+
     pub async fn with_api<T, Fut: Future<Output=(impl Into<Api>, T)>, Fun: FnOnce(Api) -> Fut>(&self, fun: Fun) -> T where T: Send+Sized {
         let api = self.0.pop().await;
         let (api, res) = fun(api).await;
@@ -33,7 +23,23 @@ impl ApiPool {
     }
 }
 
-impl<Req, Res> Sender<Req, Res> for &ApiPool where Api: Sender<Req, Res>, Req: Send, Res: Send, <Api as Sender<Req, Res>>::Error: Send {
+impl<T:Clone> ApiPool<T> {
+    pub fn with_capacity(api: T, capacity: usize) -> Self {
+        let q = deadqueue::unlimited::Queue::new();
+        for _ in 0..capacity {
+            q.push(api.clone());
+        }
+        Self(q)
+    }
+    pub async fn get(&self) -> T {
+        let res = self.0.pop().await;
+        self.0.push(res.clone());
+        res
+    }
+}
+
+
+impl<Api, Req, Res> Sender<Req, Res> for &ApiPool<Api> where Api: Sender<Req, Res>, Req: Send, Res: Send, <Api as Sender<Req, Res>>::Error: Send {
     type Error = <Api as Sender<Req, Res>>::Error;
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)> {
         log::warn!("Don use ApiPool::send_and_back! Please, use ApiPool::send");
@@ -46,7 +52,7 @@ impl<Req, Res> Sender<Req, Res> for &ApiPool where Api: Sender<Req, Res>, Req: S
     }
 }
 
-impl<Req,T> StartStream<Req,T> for &ApiPool where Api: StartStream<Req, T> {
+impl<Api, Req,T> StartStream<Req,T> for &ApiPool<Api> where Api: StartStream<Req, T> + Clone {
     fn start_stream(self, req: Req, sender: tokio::sync::broadcast::Sender<T>) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> {
         Box::pin(async move {
             let api = self.0.pop().await;
