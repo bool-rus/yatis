@@ -9,12 +9,15 @@ use crate::send::Sender;
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
 impl<Api> ApiPool<Api> {
+
     pub fn new(api: Api) -> Self {
         let q = deadqueue::unlimited::Queue::new();
         q.push(api);
         Self(q)
     }
-
+    pub fn add(&self, api: Api) {
+        self.0.push(api);
+    }
     pub async fn with_api<T, Fut: Future<Output=(impl Into<Api>, T)>, Fun: FnOnce(Api) -> Fut>(&self, fun: Fun) -> T where T: Send+Sized {
         let api = self.0.pop().await;
         let (api, res) = fun(api).await;
@@ -24,13 +27,6 @@ impl<Api> ApiPool<Api> {
 }
 
 impl<T:Clone> ApiPool<T> {
-    pub fn with_capacity(api: T, capacity: usize) -> Self {
-        let q = deadqueue::unlimited::Queue::new();
-        for _ in 0..capacity {
-            q.push(api.clone());
-        }
-        Self(q)
-    }
     pub async fn get(&self) -> T {
         let res = self.0.pop().await;
         self.0.push(res.clone());
