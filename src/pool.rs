@@ -4,7 +4,7 @@ use std::future::Future;
 use tokio::task::JoinHandle;
 
 use crate::stream::StartStream;
-use crate::send::Sender;
+use crate::send::OwnedSender;
 
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
@@ -35,8 +35,8 @@ impl<T:Clone> ApiPool<T> {
 }
 
 
-impl<Api, Req, Res> Sender<Req, Res> for &ApiPool<Api> where Api: Sender<Req, Res>, Req: Send, Res: Send, <Api as Sender<Req, Res>>::Error: Send {
-    type Error = <Api as Sender<Req, Res>>::Error;
+impl<Api, Req, Res> OwnedSender<Req, Res> for &ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, <Api as OwnedSender<Req, Res>>::Error: Send {
+    type Error = <Api as OwnedSender<Req, Res>>::Error;
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)> {
         log::warn!("Don use ApiPool::send_and_back! Please, use ApiPool::send");
         Box::pin(async move{(self, self.send(req).await)})

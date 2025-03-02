@@ -1,9 +1,20 @@
 use std::future::Future;
 use crate::Api;
 
-
-
 pub trait Sender<Req, Res> where Self: Sized {
+    type Error;
+    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>>;
+}
+
+impl<Api, Req, Res> Sender<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, Api::Error: Send {
+    type Error = Api::Error;
+
+    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+        self.send(req)
+    }
+}
+
+pub trait OwnedSender<Req, Res> where Self: Sized {
     type Error;
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)>;
     fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
@@ -13,7 +24,7 @@ pub trait Sender<Req, Res> where Self: Sized {
 
 macro_rules! sender_impl {
     ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {$(
-        impl Sender<$req,$res> for Api {
+        impl OwnedSender<$req,$res> for Api {
             type Error = tonic::Status;
             fn send_and_back(self, req: $req) -> impl Future<Output = (Self,Result<$res, tonic::Status>)> {Box::pin(async move {
                 let mut client = $client::from(self);
