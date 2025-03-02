@@ -1,15 +1,15 @@
 use std::future::Future;
 use crate::Api;
 
-pub trait Sender<Req, Res> where Self: Sized {
+pub trait Requestor<Req, Res> where Self: Sized {
     type Error;
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>>;
+    fn request(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>>;
 }
 
-impl<Api, Req, Res> Sender<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, Api::Error: Send {
+impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, Api::Error: Send {
     type Error = Api::Error;
 
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+    fn request(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
         self.send(req)
     }
 }

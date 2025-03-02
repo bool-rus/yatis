@@ -4,7 +4,7 @@ use std::future::Future;
 use tokio::task::JoinHandle;
 
 use crate::stream::StartStream;
-use crate::send::OwnedSender;
+use crate::requestor::OwnedSender;
 
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 

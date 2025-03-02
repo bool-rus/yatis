@@ -1,6 +1,6 @@
 use futures::StreamExt;
 use yatis::pool::ApiPool;
-use yatis::send::Sender;
+use yatis::requestor::Requestor;
 use yatis::stream::StartStream;
 use yatis::stream_response::StreamResponse;
 use yatis::Api;
@@ -19,9 +19,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = ApiPool::new(api.clone());
     pool.add(api.clone());
     pool.add(api);
-    let accounts = pool.send(GetAccountsRequest::default()).await?;
-    let portfolio = pool.send(PortfolioRequest { account_id: accounts.accounts[0].id.clone(), currency: None }).await?;
-    let t: ShareResponse = pool.send(InstrumentRequest { id_type: InstrumentIdType::Ticker.into(), class_code: Some("TQBR".to_string()), id: "T".to_string() }).await?;
+    let accounts = pool.request(GetAccountsRequest::default()).await?;
+    let portfolio = pool.request(PortfolioRequest { account_id: accounts.accounts[0].id.clone(), currency: None }).await?;
+    let t: ShareResponse = pool.request(InstrumentRequest { id_type: InstrumentIdType::Ticker.into(), class_code: Some("TQBR".to_string()), id: "T".to_string() }).await?;
     log::info!("t share: {t:?}");
     let t = t.instrument.unwrap().uid;
     portfolio.total_amount_portfolio.as_ref().map(|m|print_money("total", m));

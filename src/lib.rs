@@ -10,7 +10,7 @@ use tonic::client::Grpc;
 pub type Api = Grpc<IService>;
 
 pub mod t_types;
-pub mod send;
+pub mod requestor;
 pub mod stream;
 pub mod stream_response;
 pub mod pool;
@@ -59,3 +59,7 @@ impl Interceptor for TokenInterceptor {
         Ok(req)
     }
 }
+
+pub use requestor::Requestor;
+pub use stream::StartStream;
+pub use stream_response::StreamResponse;
