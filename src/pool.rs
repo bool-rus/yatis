@@ -49,7 +49,8 @@ impl<Api, Req, Res> Sender<Req, Res> for &ApiPool<Api> where Api: Sender<Req, Re
 }
 
 impl<Api, Req,T> StartStream<Req,T> for &ApiPool<Api> where Api: StartStream<Req, T> + Clone {
-    fn start_stream(self, req: Req, sender: tokio::sync::broadcast::Sender<T>) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> {
+    fn start_stream<S>(self, req: Req, sender: S) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> 
+    where S: futures::Sink<T> + Unpin + Send + 'static {
         Box::pin(async move {
             let api = self.0.pop().await;
             self.0.push(api.clone());

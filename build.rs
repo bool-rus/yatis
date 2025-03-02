@@ -1,15 +1,5 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("running prost codegen");
-    let services = [
-        "InstrumentsService", 
-        "MarketDataService", 
-        "OperationsService", 
-        "OrdersService", 
-        "SanboxService", 
-        "SignalsService", 
-        "StopOrderService", 
-        "UsersService"
-    ];
     tonic_build::configure().build_server(false)
         .protoc_arg("--experimental_allow_proto3_optional")
         .client_attribute(".", "#[derive(derive_more::From, derive_more::Into)]")
