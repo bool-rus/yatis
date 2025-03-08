@@ -11,6 +11,8 @@ async fn main() -> Result<(), Box<dyn Error>>{
         class_code:Some("TQBR".to_string()),
         id:"T".to_string()
     }).await?;
+    let share = share.instrument.unwrap();
     println!("T: {share:?}\n");
+    println!("min lot price increment: {}", share.min_price_increment.unwrap() * share.lot);
     Ok(())
 }
