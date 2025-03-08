@@ -43,6 +43,8 @@ use crate::t_types::signal_service_client::SignalServiceClient;
 use crate::t_types::stop_orders_service_client::StopOrdersServiceClient;
 use crate::t_types::users_service_client::UsersServiceClient;
 
+use crate::t_types::sandbox_service_client::SandboxServiceClient;
+
 use crate::t_types::*;
 sender_impl![
     BondResponse = InstrumentsServiceClient:bond_by(InstrumentRequest),
@@ -118,4 +120,8 @@ sender_impl![
     GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
     GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
     GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
+
+    OpenSandboxAccountResponse = SandboxServiceClient:open_sandbox_account(OpenSandboxAccountRequest),
+    CloseSandboxAccountResponse = SandboxServiceClient:close_sandbox_account(CloseSandboxAccountRequest),
+    SandboxPayInResponse = SandboxServiceClient:sandbox_pay_in(SandboxPayInRequest),
 ];

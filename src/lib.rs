@@ -14,12 +14,16 @@ pub mod requestor;
 pub mod stream;
 pub mod stream_response;
 pub mod pool;
+
+pub mod sandbox;
 //under development
 mod bidirect;
+mod quotation;
 
 pub type IService = InterceptedService<Channel, TokenInterceptor>;
 pub trait InvestService: Sized {
     fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error>;
+    fn create_sandbox_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error>;
 }
 
 impl InvestService for IService {
@@ -28,10 +32,20 @@ impl InvestService for IService {
         let channel = Channel::from_static("https://invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
         Ok(InterceptedService::new(channel, TokenInterceptor::new(token)))
     }
+    fn create_sandbox_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
+        let tls = ClientTlsConfig::new().with_native_roots();
+        let channel = Channel::from_static("https://invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
+        Ok(InterceptedService::new(channel, TokenInterceptor::new(token)))
+    }
 }
 impl InvestService for Grpc<IService> {
     fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
         let serv = InterceptedService::create_invest_service(token)?;
+        let res = Grpc::new(serv).accept_compressed(GZIP).send_compressed(GZIP);
+        Ok(res)
+    }
+    fn create_sandbox_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
+        let serv = InterceptedService::create_sandbox_invest_service(token)?;
         let res = Grpc::new(serv).accept_compressed(GZIP).send_compressed(GZIP);
         Ok(res)
     }
