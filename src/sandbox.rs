@@ -10,7 +10,7 @@ pub struct Sandbox(Api);
 impl InvestService for Sandbox {
     fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
         let tls = ClientTlsConfig::new().with_native_roots();
-        let channel = Channel::from_static("https://invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
+        let channel = Channel::from_static("https://sandbox-invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
         let serv = tonic::service::interceptor::InterceptedService::new(channel, TokenInterceptor::new(token));
         let g = Grpc::new(serv).accept_compressed(GZIP).send_compressed(GZIP);
         Ok(Self(g))
