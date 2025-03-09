@@ -2,30 +2,27 @@ use std::future::Future;
 use crate::Api;
 
 pub trait Requestor<Req, Res> where Self: Sized {
-    type Error;
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>>;
+    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
-impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, Api::Error: Send {
-    type Error = Api::Error;
-
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
+    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
         self.send(req)
     }
 }
 
 pub trait OwnedSender<Req, Res> where Self: Sized {
-    type Error;
-    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)>;
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)>;
+    fn send(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
         Box::pin(async move {self.send_and_back(req).await.1})
     }
 }
 
 macro_rules! sender_impl {
-    ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {$(
+    ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {
+        pub trait AnyRequestor: $(OwnedSender<$req,$res> + )+ Send {}
+        $(
         impl OwnedSender<$req,$res> for Api {
-            type Error = tonic::Status;
             fn send_and_back(self, req: $req) -> impl Future<Output = (Self,Result<$res, tonic::Status>)> {Box::pin(async move {
                 let mut client = $client::from(self);
                 let r = client.$method(req).await.map(|r|r.into_inner());
@@ -43,7 +40,7 @@ use crate::t_types::signal_service_client::SignalServiceClient;
 use crate::t_types::stop_orders_service_client::StopOrdersServiceClient;
 use crate::t_types::users_service_client::UsersServiceClient;
 
-use crate::t_types::sandbox_service_client::SandboxServiceClient;
+impl AnyRequestor for Api {}
 
 use crate::t_types::*;
 sender_impl![
@@ -120,8 +117,4 @@ sender_impl![
     GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
     GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
     GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
-
-    OpenSandboxAccountResponse = SandboxServiceClient:open_sandbox_account(OpenSandboxAccountRequest),
-    CloseSandboxAccountResponse = SandboxServiceClient:close_sandbox_account(CloseSandboxAccountRequest),
-    SandboxPayInResponse = SandboxServiceClient:sandbox_pay_in(SandboxPayInRequest),
 ];
