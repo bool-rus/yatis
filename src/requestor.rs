@@ -2,20 +2,18 @@ use std::future::Future;
 use crate::Api;
 
 pub trait Requestor<Req, Res> where Self: Sized {
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
+    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
 impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
+    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
         self.send(req)
     }
 }
 
 pub trait OwnedSender<Req, Res> where Self: Sized {
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)>;
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
-        Box::pin(async move {self.send_and_back(req).await.1})
-    }
+    fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
 macro_rules! sender_impl {
@@ -27,6 +25,11 @@ macro_rules! sender_impl {
                 let mut client = $client::from(self);
                 let r = client.$method(req).await.map(|r|r.into_inner());
                 (client.into(), r)
+            })}
+            fn send(&self, req: $req) -> impl Future<Output = Result<$res, tonic::Status>> {Box::pin(async move {
+                let mut client = $client::from(self.clone());
+                let r = client.$method(req).await.map(|r|r.into_inner());
+                r
             })}
         }
     )+}

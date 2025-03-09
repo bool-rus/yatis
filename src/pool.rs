@@ -3,8 +3,9 @@ use std::future::Future;
 
 use tokio::task::JoinHandle;
 
-use crate::stream::StartStream;
+use crate::stream::{AnyStream, StartStream};
 use crate::requestor::{AnyRequestor, OwnedSender};
+use crate::StreamResponse;
 
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
@@ -35,20 +36,23 @@ impl<T:Clone> ApiPool<T> {
 }
 
 
-impl<Api, Req, Res> OwnedSender<Req, Res> for &ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
+impl<Api, Req, Res> OwnedSender<Req, Res> for ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)> {
         log::warn!("Don use ApiPool::send_and_back! Please, use ApiPool::send");
-        Box::pin(async move{(self, self.send(req).await)})
+        Box::pin(async move{
+            let res = self.send(req).await;
+            (self, res)
+        })
     }
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
+    fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
         self.with_api(move |api|Box::pin(async move {
             api.send_and_back(req).await
         }))
     }
 }
 
-impl<Api, Req,T> StartStream<Req,T> for &ApiPool<Api> where Api: StartStream<Req, T> + Clone {
-    fn start_stream<S>(self, req: Req, sender: S) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> 
+impl<Api, Req,T> StartStream<Req,T> for ApiPool<Api> where Api: StartStream<Req, T> + Clone {
+    fn start_stream<S>(&self, req: Req, sender: S) -> impl Future<Output=Result<JoinHandle<()>, tonic::Status>> 
     where S: futures::Sink<T> + Unpin + Send + 'static {
         Box::pin(async move {
             let api = self.0.pop().await;
@@ -58,4 +62,5 @@ impl<Api, Req,T> StartStream<Req,T> for &ApiPool<Api> where Api: StartStream<Req
     }
 }
 
-impl<T: AnyRequestor> AnyRequestor for &ApiPool<T> {}
+impl<T: AnyRequestor> AnyRequestor for ApiPool<T> {}
+impl<T: AnyStream<StreamResponse> + Clone> AnyStream<StreamResponse> for ApiPool<T> {}

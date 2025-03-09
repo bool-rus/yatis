@@ -10,7 +10,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let figi = "TCS80A107UL4".to_string(); //T-Techno shares
     let (s, mut r) = futures::channel::mpsc::channel::<StreamResponse>(10);
-    api.clone().start_stream(MarketDataServerSideStreamRequest {
+    api.start_stream(MarketDataServerSideStreamRequest {
         subscribe_last_price_request: Some(SubscribeLastPriceRequest {
             subscription_action: SubscriptionAction::Subscribe.into(),
             instruments: vec![LastPriceInstrument {figi,..Default::default()}],

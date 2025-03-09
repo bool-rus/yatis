@@ -45,7 +45,7 @@ macro_rules! ping_from_ping_settings {
 ping_from_ping_settings!(PortfolioStreamRequest, PositionsStreamRequest, MarketDataServerSideStreamRequest, );
 
 pub trait StartStream<Req, T> {
-    fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
+    fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(&self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
 }
 
 impl AnyStream<crate::StreamResponse> for Api {}
@@ -55,10 +55,11 @@ macro_rules! start_stream_impl {
         pub trait AnyStream<T>: $(StartStream<$req, T> +)+ Send where T: $( From<$res> +)+ Send + 'static {}
         $(
         impl<T> StartStream<$req, T> for Api where T: From<$res> + Send + 'static {
-            fn start_stream<S>(self, req: $req, mut sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>> 
+            fn start_stream<S>(&self, req: $req, mut sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>> 
             where S: futures::Sink<T> + Unpin + Send + 'static { Box::pin(async move {
+                let this = self.clone();
                 let timeout = Duration::from_millis(req.delay_ms());
-                let mut client = $client::from(self.clone());
+                let mut client = $client::from(this.clone());
                 let mut receiver = client.$method(req.clone()).await?.into_inner();
                 let handle = tokio::spawn(async move {
                     loop {
@@ -71,7 +72,7 @@ macro_rules! start_stream_impl {
                             Ok(Err(e)) => log::error!("err {e:?}, reconnecting..."),
                             Err(_) => warn!("timeout, reconnecting..."),
                         }
-                        let mut client = $client::from(self.clone());    
+                        let mut client = $client::from(this.clone());    
                         let fut = client.$method(req.clone());
                         match tokio::time::timeout(timeout, fut).await {
                             Ok(Ok(x)) => {

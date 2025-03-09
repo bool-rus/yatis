@@ -11,8 +11,8 @@ async fn main() -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-async fn start_algo(api: impl InvestApi + Clone) -> Result<(), tonic::Status> {
-    let share: ShareResponse = api.clone().request(InstrumentRequest{
+async fn start_algo(api: impl InvestApi) -> Result<(), tonic::Status> {
+    let share: ShareResponse = api.request(InstrumentRequest{
         id_type:InstrumentIdType::Ticker.into(),
         class_code:Some("TQBR".to_string()),
         id:"T".to_string()

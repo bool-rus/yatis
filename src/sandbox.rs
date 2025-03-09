@@ -1,4 +1,3 @@
-use tonic::service::interceptor::InterceptedService;
 use tonic::client::Grpc;
 use tonic::transport::{Channel, ClientTlsConfig};
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
@@ -12,7 +11,7 @@ impl InvestService for Sandbox {
     fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
         let tls = ClientTlsConfig::new().with_native_roots();
         let channel = Channel::from_static("https://invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
-        let serv = InterceptedService::new(channel, TokenInterceptor::new(token));
+        let serv = tonic::service::interceptor::InterceptedService::new(channel, TokenInterceptor::new(token));
         let g = Grpc::new(serv).accept_compressed(GZIP).send_compressed(GZIP);
         Ok(Self(g))
     }
@@ -26,6 +25,11 @@ macro_rules! sandbox_sender_impl {
                 let mut client = $client::from(self.0);
                 let r = client.$method(req).await.map(|r|r.into_inner());
                 (Self(client.into()), r)
+            })}
+            fn send(&self, req: $req) -> impl std::future::Future<Output = Result<$res, tonic::Status>> {Box::pin(async move {
+                let mut client = $client::from(self.0.clone());
+                let r = client.$method(req).await.map(|r|r.into_inner());
+                r
             })}
         }
     )+}
@@ -129,7 +133,7 @@ sandbox_sender_impl![
 
 
 impl<Req, T> StartStream<Req,T> for Sandbox where Api: StartStream<Req, T> + Clone {
-    fn start_stream<S>(self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> 
+    fn start_stream<S>(&self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> 
     where S: futures::Sink<T> + Unpin + Send + 'static {
         Box::pin(async move {
             let Self(api) = self;

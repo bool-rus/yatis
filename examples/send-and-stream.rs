@@ -3,7 +3,6 @@ use std::time::Duration;
 use futures::StreamExt;
 use yatis::pool::ApiPool;
 use yatis::requestor::Requestor;
-use yatis::stream::StartStream;
 use yatis::stream_response::StreamResponse;
 use yatis::Api;
 use yatis::t_types::*;
@@ -19,13 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = ApiPool::new(api.clone());
     pool.add(api.clone());
     pool.add(api);
-    let handle = tokio::spawn(async move {traiding_algo(pool).await});
+    let handle = tokio::spawn(async move {trading_algo(pool).await});
     tokio::time::sleep(Duration::from_secs(180)).await;
     handle.abort();
     Ok(())
 }
 
-async fn traiding_algo(pool: ApiPool<impl InvestApi + Clone>) -> Result<(), tonic::Status> {
+async fn trading_algo(pool: impl InvestApi) -> Result<(), tonic::Status> {
     let accounts = pool.request(GetAccountsRequest::default()).await?;
     let portfolio = pool.request(PortfolioRequest { account_id: accounts.accounts[0].id.clone(), currency: None }).await?;
     let t: ShareResponse = pool.request(InstrumentRequest { id_type: InstrumentIdType::Ticker.into(), class_code: Some("TQBR".to_string()), id: "T".to_string() }).await?;

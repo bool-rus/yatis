@@ -10,14 +10,15 @@ use tonic::client::Grpc;
 
 
 pub type Api = Grpc<IService>;
+pub use sandbox::Sandbox as SandboxApi;
 
 pub mod t_types;
 pub mod requestor;
 pub mod stream;
 pub mod stream_response;
 pub mod pool;
-pub mod sandbox;
 
+mod sandbox;
 mod quotation;
 
 //under development
