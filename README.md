@@ -55,7 +55,7 @@
 - [x] Investing api implementation
 - [x] Unary operations (all)
 - [x] Pool of reusable connections
-- [ ] Sandbox API
+- [x] Sandbox API with polymorphism (see examples)
 - [x] Server side streams (all)
   - [x] Authomatic reconnect on stucked connections
   - [x] Resubscribtion on reconnect

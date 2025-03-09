@@ -4,7 +4,7 @@ use std::future::Future;
 use tokio::task::JoinHandle;
 
 use crate::stream::StartStream;
-use crate::requestor::OwnedSender;
+use crate::requestor::{AnyRequestor, OwnedSender};
 
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
@@ -35,13 +35,12 @@ impl<T:Clone> ApiPool<T> {
 }
 
 
-impl<Api, Req, Res> OwnedSender<Req, Res> for &ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send, <Api as OwnedSender<Req, Res>>::Error: Send {
-    type Error = <Api as OwnedSender<Req, Res>>::Error;
-    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, Self::Error>)> {
+impl<Api, Req, Res> OwnedSender<Req, Res> for &ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
+    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)> {
         log::warn!("Don use ApiPool::send_and_back! Please, use ApiPool::send");
         Box::pin(async move{(self, self.send(req).await)})
     }
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, Self::Error>> {
+    fn send(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
         self.with_api(move |api|Box::pin(async move {
             api.send_and_back(req).await
         }))
@@ -58,3 +57,5 @@ impl<Api, Req,T> StartStream<Req,T> for &ApiPool<Api> where Api: StartStream<Req
         })
     }
 }
+
+impl<T: AnyRequestor> AnyRequestor for &ApiPool<T> {}

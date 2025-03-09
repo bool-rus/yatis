@@ -1,36 +1,36 @@
-use std::future::Future;
-use crate::Api;
+use tonic::service::interceptor::InterceptedService;
+use tonic::client::Grpc;
+use tonic::transport::{Channel, ClientTlsConfig};
+use tonic::codec::CompressionEncoding::Gzip as GZIP;
 
-pub trait Requestor<Req, Res> where Self: Sized {
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
-}
+use crate::{Api, InvestService, StartStream, StreamResponse, TokenInterceptor};
 
-impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
-    fn request(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
-        self.send(req)
+#[derive(Clone)]
+pub struct Sandbox(Api);
+
+impl InvestService for Sandbox {
+    fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error> {
+        let tls = ClientTlsConfig::new().with_native_roots();
+        let channel = Channel::from_static("https://invest-public-api.tinkoff.ru").tls_config(tls)?.connect_lazy();
+        let serv = InterceptedService::new(channel, TokenInterceptor::new(token));
+        let g = Grpc::new(serv).accept_compressed(GZIP).send_compressed(GZIP);
+        Ok(Self(g))
     }
 }
 
-pub trait OwnedSender<Req, Res> where Self: Sized {
-    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)>;
-    fn send(self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
-        Box::pin(async move {self.send_and_back(req).await.1})
-    }
-}
-
-macro_rules! sender_impl {
+macro_rules! sandbox_sender_impl {
     ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {
-        pub trait AnyRequestor: $(OwnedSender<$req,$res> + )+ Send {}
         $(
-        impl OwnedSender<$req,$res> for Api {
-            fn send_and_back(self, req: $req) -> impl Future<Output = (Self,Result<$res, tonic::Status>)> {Box::pin(async move {
-                let mut client = $client::from(self);
+        impl OwnedSender<$req,$res> for Sandbox {
+            fn send_and_back(self, req: $req) -> impl std::future::Future<Output = (Self,Result<$res, tonic::Status>)> {Box::pin(async move {
+                let mut client = $client::from(self.0);
                 let r = client.$method(req).await.map(|r|r.into_inner());
-                (client.into(), r)
+                (Self(client.into()), r)
             })}
         }
     )+}
 }
+
 
 use crate::t_types::instruments_service_client::InstrumentsServiceClient;
 use crate::t_types::operations_service_client::OperationsServiceClient;
@@ -40,10 +40,14 @@ use crate::t_types::signal_service_client::SignalServiceClient;
 use crate::t_types::stop_orders_service_client::StopOrdersServiceClient;
 use crate::t_types::users_service_client::UsersServiceClient;
 
-impl AnyRequestor for Api {}
+use crate::t_types::sandbox_service_client::SandboxServiceClient;
 
 use crate::t_types::*;
-sender_impl![
+use crate::requestor::{AnyRequestor, OwnedSender};
+
+impl AnyRequestor for Sandbox {}
+
+sandbox_sender_impl![
     BondResponse = InstrumentsServiceClient:bond_by(InstrumentRequest),
     BondsResponse = InstrumentsServiceClient:bonds(InstrumentsRequest),
     CreateFavoriteGroupResponse = InstrumentsServiceClient:create_favorite_group(CreateFavoriteGroupRequest),
@@ -91,20 +95,20 @@ sender_impl![
     GetTradingStatusesResponse = MarketDataServiceClient:get_trading_statuses(GetTradingStatusesRequest),
     
     GetDividendsForeignIssuerResponse = OperationsServiceClient:get_dividends_foreign_issuer(GetDividendsForeignIssuerRequest),
-    OperationsResponse = OperationsServiceClient:get_operations(OperationsRequest),
-    GetOperationsByCursorResponse = OperationsServiceClient:get_operations_by_cursor(GetOperationsByCursorRequest),
-    PortfolioResponse = OperationsServiceClient:get_portfolio(PortfolioRequest),
-    PositionsResponse = OperationsServiceClient:get_positions(PositionsRequest),
-    WithdrawLimitsResponse = OperationsServiceClient:get_withdraw_limits(WithdrawLimitsRequest),
+    OperationsResponse = SandboxServiceClient:get_sandbox_operations(OperationsRequest),
+    GetOperationsByCursorResponse = SandboxServiceClient:get_sandbox_operations_by_cursor(GetOperationsByCursorRequest),
+    PortfolioResponse = SandboxServiceClient:get_sandbox_portfolio(PortfolioRequest),
+    PositionsResponse = SandboxServiceClient:get_sandbox_positions(PositionsRequest),
+    WithdrawLimitsResponse = SandboxServiceClient:get_sandbox_withdraw_limits(WithdrawLimitsRequest),
 
-    CancelOrderResponse = OrdersServiceClient:cancel_order(CancelOrderRequest),
-    GetMaxLotsResponse = OrdersServiceClient:get_max_lots(GetMaxLotsRequest),
+    CancelOrderResponse = SandboxServiceClient:cancel_sandbox_order(CancelOrderRequest),
+    GetMaxLotsResponse = SandboxServiceClient:get_sandbox_max_lots(GetMaxLotsRequest),
     GetOrderPriceResponse = OrdersServiceClient:get_order_price(GetOrderPriceRequest),
-    OrderState = OrdersServiceClient:get_order_state(GetOrderStateRequest),
-    GetOrdersResponse = OrdersServiceClient:get_orders(GetOrdersRequest),
-    PostOrderResponse = OrdersServiceClient:post_order(PostOrderRequest),
+    OrderState = SandboxServiceClient:get_sandbox_order_state(GetOrderStateRequest),
+    GetOrdersResponse = SandboxServiceClient:get_sandbox_orders(GetOrdersRequest),
+    PostOrderResponse = SandboxServiceClient:post_sandbox_order(PostOrderRequest),
     PostOrderAsyncResponse = OrdersServiceClient:post_order_async(PostOrderAsyncRequest),
-    PostOrderResponse = OrdersServiceClient:replace_order(ReplaceOrderRequest),
+    PostOrderResponse = SandboxServiceClient:replace_sandbox_order(ReplaceOrderRequest),
 
     GetSignalsResponse = SignalServiceClient:get_signals(GetSignalsRequest),
     GetStrategiesResponse = SignalServiceClient:get_strategies(GetStrategiesRequest),
@@ -113,8 +117,25 @@ sender_impl![
     GetStopOrdersResponse = StopOrdersServiceClient:get_stop_orders(GetStopOrdersRequest),
     PostStopOrderResponse = StopOrdersServiceClient:post_stop_order(PostStopOrderRequest),
 
-    GetAccountsResponse = UsersServiceClient:get_accounts(GetAccountsRequest),
+    GetAccountsResponse = SandboxServiceClient:get_sandbox_accounts(GetAccountsRequest),
     GetInfoResponse = UsersServiceClient:get_info(GetInfoRequest),
     GetMarginAttributesResponse = UsersServiceClient:get_margin_attributes(GetMarginAttributesRequest),
     GetUserTariffResponse = UsersServiceClient:get_user_tariff(GetUserTariffRequest),
+
+    OpenSandboxAccountResponse = SandboxServiceClient:open_sandbox_account(OpenSandboxAccountRequest),
+    CloseSandboxAccountResponse = SandboxServiceClient:close_sandbox_account(CloseSandboxAccountRequest),
+    SandboxPayInResponse = SandboxServiceClient:sandbox_pay_in(SandboxPayInRequest),
 ];
+
+
+impl<Req, T> StartStream<Req,T> for Sandbox where Api: StartStream<Req, T> + Clone {
+    fn start_stream<S>(self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> 
+    where S: futures::Sink<T> + Unpin + Send + 'static {
+        Box::pin(async move {
+            let Self(api) = self;
+            api.start_stream(req, sender).await
+        })
+    }
+}
+
+impl crate::stream::AnyStream<StreamResponse> for Sandbox {}
