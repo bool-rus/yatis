@@ -1,9 +1,9 @@
 [package]
 name = "yatis"
-version = "0.0.6"
+version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-keywords = ["investing", "t-bank", "tbank", "tinkoff"]
+keywords = ["investing", "invest", "t-bank", "tbank", "tinkoff"]
 description = "Yet Another T-bank Investment Sdk"
 repository = "https://github.com/bool-rus/yatis"
 
