@@ -92,3 +92,16 @@ impl std::fmt::Display for Quotation {
         write!(f, "{}", self.units as f32 + fract)
     }
 }
+
+impl std::fmt::Display for MoneyValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let q = Quotation {units: self.units, nano: self.nano};
+        write!(f, "{} {}", q, self.currency)
+    }
+}
+
+impl From<f64> for Quotation {
+    fn from(value: f64) -> Self {
+        Quotation { units: value.trunc() as i64, nano: (value.fract() * DIVIDER as f64) as i32 }
+    }
+}
