@@ -3,7 +3,7 @@ use tonic::client::Grpc;
 use tonic::transport::{Channel, ClientTlsConfig};
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
 
-use crate::{Api, InvestService, TokenInterceptor};
+use crate::{Api, InvestService, StartStream, StreamResponse, TokenInterceptor};
 
 #[derive(Clone)]
 pub struct Sandbox(Api);
@@ -126,3 +126,16 @@ sandbox_sender_impl![
     CloseSandboxAccountResponse = SandboxServiceClient:close_sandbox_account(CloseSandboxAccountRequest),
     SandboxPayInResponse = SandboxServiceClient:sandbox_pay_in(SandboxPayInRequest),
 ];
+
+
+impl<Req, T> StartStream<Req,T> for Sandbox where Api: StartStream<Req, T> + Clone {
+    fn start_stream<S>(self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> 
+    where S: futures::Sink<T> + Unpin + Send + 'static {
+        Box::pin(async move {
+            let Self(api) = self;
+            api.start_stream(req, sender).await
+        })
+    }
+}
+
+impl crate::stream::AnyStream<StreamResponse> for Sandbox {}

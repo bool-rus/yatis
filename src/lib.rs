@@ -1,3 +1,5 @@
+use requestor::AnyRequestor;
+use stream::AnyStream;
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
 use tonic::service::interceptor::InterceptedService;
 use tonic::service::Interceptor;
@@ -67,3 +69,6 @@ impl Interceptor for TokenInterceptor {
 pub use requestor::Requestor;
 pub use stream::StartStream;
 pub use stream_response::StreamResponse;
+
+pub trait InvestApi: AnyRequestor + AnyStream<StreamResponse> {}
+impl<T> InvestApi for T where T: AnyRequestor + AnyStream<StreamResponse> {}

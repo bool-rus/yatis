@@ -25,7 +25,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-async fn any_trade_algo(api: impl AnyRequestor + Clone) -> Result<GetAccountsResponse, tonic::Status> {
+async fn any_trade_algo(api: impl InvestApi + Clone) -> Result<GetAccountsResponse, tonic::Status> {
     let r = api.clone().request(GetAccountsRequest::default()).await?;
     println!("{r:?}");
     for a in r.accounts.clone() {

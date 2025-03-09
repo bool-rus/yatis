@@ -1,6 +1,6 @@
 use std::error::Error;
 
-
+#[allow(deprecated)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     use t_types::*;

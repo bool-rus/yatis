@@ -48,8 +48,12 @@ pub trait StartStream<Req, T> {
     fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
 }
 
+impl AnyStream<crate::StreamResponse> for Api {}
+
 macro_rules! start_stream_impl {
-    ($($res:ty = $client:ident : $method:ident($req:ty),)+) => {$(
+    ($($res:ty = $client:ident : $method:ident($req:ty),)+) => {
+        pub trait AnyStream<T>: $(StartStream<$req, T> +)+ Send where T: $( From<$res> +)+ Send + 'static {}
+        $(
         impl<T> StartStream<$req, T> for Api where T: From<$res> + Send + 'static {
             fn start_stream<S>(self, req: $req, mut sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>> 
             where S: futures::Sink<T> + Unpin + Send + 'static { Box::pin(async move {
