@@ -14,11 +14,12 @@ pub mod requestor;
 pub mod stream;
 pub mod stream_response;
 pub mod pool;
-
 pub mod sandbox;
+
+mod quotation;
+
 //under development
 mod bidirect;
-mod quotation;
 
 pub type IService = InterceptedService<Channel, TokenInterceptor>;
 pub trait InvestService: Sized {
