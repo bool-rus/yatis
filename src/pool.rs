@@ -1,4 +1,4 @@
-
+//! Simple rounding pool implementation
 use std::future::Future;
 
 use tokio::task::JoinHandle;
@@ -6,11 +6,24 @@ use tokio::task::JoinHandle;
 use crate::stream::{AnyStream, StartStream};
 use crate::requestor::{AnyRequestor, OwnedSender};
 use crate::StreamResponse;
-
+/// Pool for invest api connections
+/// # Examples:
+/// ```rust
+/// #[tokio::main]
+/// async fn main() {
+///    use yatis::*;
+///    let token = std::env::var("SANDBOX_TOKEN").expect("need to set env var 'TOKEN'");
+///    let api = yatis::SandboxApi::create_invest_service(token).unwrap();
+///    let pool = ApiPool::new(api.clone());
+///    pool.add(api); //now we have pool of 2 connections
+///    trading(pool).await;
+/// }
+/// async fn trading(api: impl yatis::InvestApi) {
+///     /* do some trading */
+/// }
 pub struct ApiPool<T>(deadqueue::unlimited::Queue<T>);
 
 impl<Api> ApiPool<Api> {
-
     pub fn new(api: Api) -> Self {
         let q = deadqueue::unlimited::Queue::new();
         q.push(api);
@@ -37,6 +50,7 @@ impl<T:Clone> ApiPool<T> {
 
 
 impl<Api, Req, Res> OwnedSender<Req, Res> for ApiPool<Api> where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
+    /// Do not use it!
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)> {
         log::warn!("Don use ApiPool::send_and_back! Please, use ApiPool::send");
         Box::pin(async move{

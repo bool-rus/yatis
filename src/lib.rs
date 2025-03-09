@@ -1,3 +1,4 @@
+#![doc = include_str!("../README.md")]
 use requestor::AnyRequestor;
 use stream::AnyStream;
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
@@ -8,9 +9,37 @@ use tonic::{Request, Status};
 use uuid::Uuid;
 use tonic::client::Grpc;
 
-
+/// reused tonic's Grpc type, with implementation of [crate::InvestApi]
+/// # Examples:
+/// ```rust
+/// # #[tokio::main]
+/// # async fn main() {
+///     use yatis::*;
+///     use t_types::*;
+/// #    let token = std::env::var("TOKEN").expect("need to set env var 'TOKEN'");
+///     let api = Api::create_invest_service(token).unwrap();
+///     println!("{:?}", api.request(GetInfoRequest{}).await);;
+/// # }
+/// ``` 
 pub type Api = Grpc<IService>;
+
+/// sandbox implementation of api. Also implements [crate::InvestApi]
+/// Not that Sandbox maniputlation operations not implemented in trait [crate::InvestApi],
+/// but implemented in type SandboxApi
+/// # Examples:
+/// ```rust
+/// # #[tokio::main]
+/// # async fn main() {
+///     use yatis::*;
+///     use t_types::*;
+/// #    let token = std::env::var("SANDBOX_TOKEN").expect("need to set env var 'TOKEN'");
+///     let api = SandboxApi::create_invest_service(token).unwrap();
+///     println!("{:?}", api.request(GetInfoRequest{}).await);
+/// # }
+/// ``` 
 pub use sandbox::Sandbox as SandboxApi;
+
+pub use pool::ApiPool;
 
 pub mod t_types;
 pub mod requestor;
@@ -21,10 +50,8 @@ pub mod pool;
 mod sandbox;
 mod quotation;
 
-//under development
-mod bidirect;
-
 pub type IService = InterceptedService<Channel, TokenInterceptor>;
+/// Self creator
 pub trait InvestService: Sized {
     fn create_invest_service(token: impl ToString) -> Result<Self, tonic::transport::Error>;
 }
@@ -71,5 +98,34 @@ pub use requestor::Requestor;
 pub use stream::StartStream;
 pub use stream_response::StreamResponse;
 
+/// trait for use some methods of investing api.
+/// # Examples:
+/// ```rust
+/// # #[tokio::main]
+/// # async fn main() {
+/// #    use yatis::*;
+/// #    let token = std::env::var("SANDBOX_TOKEN").expect("need to set env var 'TOKEN'");
+/// #    let api = yatis::SandboxApi::create_invest_service(token).unwrap();
+/// #    trading(api).await;
+/// # }
+/// async fn trading(api: impl yatis::InvestApi) {
+///    use yatis::*;
+///    use t_types::*;
+///    let res = api.request(GetAccountsRequest::default()).await.unwrap();
+///    println!("{:?}", res);
+///    println!("{:?}", api.request(GetInfoRequest{}).await);
+///    let (s, mut r) = futures::channel::mpsc::channel::<StreamResponse>(10);
+///    api.start_stream(PositionsStreamRequest{ 
+///        accounts: vec![res.accounts[0].id.clone()], 
+///        with_initial_positions: true, 
+///        ping_settings: None 
+///    }, s.clone()).await.unwrap();
+///    use futures::StreamExt; // Receiver implements Stream
+///    if let Some(res) = r.next().await {
+///       println!("{res:?}");
+///    }
+/// }
+/// ``` 
+/// 
 pub trait InvestApi: AnyRequestor + AnyStream<StreamResponse> {}
 impl<T> InvestApi for T where T: AnyRequestor + AnyStream<StreamResponse> {}

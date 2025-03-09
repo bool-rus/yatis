@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn Error>>{
     }).await?;
     println!("{r:?}");
     let accounts = any_trade_algo(api.clone()).await?;
-    for a in accounts.accounts {
+    for a in accounts {
         if a.name == name {
             let r = api.request(CloseSandboxAccountRequest{ account_id: a.id }).await;
             println!("{r:?}");
@@ -24,15 +24,21 @@ async fn main() -> Result<(), Box<dyn Error>>{
     Ok(())
 }
 
-async fn any_trade_algo(api: impl InvestApi) -> Result<GetAccountsResponse, tonic::Status> {
-    let r = api.request(GetAccountsRequest::default()).await?;
-    println!("{r:?}");
-    for a in r.accounts.clone() {
+async fn any_trade_algo(api: impl InvestApi) -> Result<Vec<Account>, tonic::Status> {
+    let GetAccountsResponse { accounts } = api.request(GetAccountsRequest::default()).await?;
+    println!("{accounts:?}");
+    for a in accounts.clone() {
         println!("portfolio for {}:", a.name);
         let r = api.request(PortfolioRequest{ account_id: a.id, currency: None }).await?;
         for p in r.positions {
             println!("\t{}: {}", p.figi, p.quantity.unwrap());
         }
     }
-    Ok(r)
+    use futures::StreamExt;
+    let (s, mut r) = futures::channel::mpsc::channel::<StreamResponse>(10);
+    api.start_stream(PositionsStreamRequest{ accounts: vec![accounts[0].id.clone()], with_initial_positions: true, ping_settings: None }, s.clone()).await?;
+    if let Some(res) = r.next().await {
+        println!("{res:?}");
+    }
+    Ok(accounts)
 }

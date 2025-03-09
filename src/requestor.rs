@@ -1,7 +1,10 @@
+//! Traits and implementations for unary requests to API. Target is implement single method [Requestor::request] for all Requests and Responses.
 use std::future::Future;
 use crate::Api;
 
+/// Auto implemented trait to send unary requests to grpc. Used for best type derivation. Uses [OwnedSender] implementation.
 pub trait Requestor<Req, Res> where Self: Sized {
+    /// send unary request to grpc and process response
     fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
@@ -11,13 +14,17 @@ impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>
     }
 }
 
+/// Main trait for unary requests.
 pub trait OwnedSender<Req, Res> where Self: Sized {
+    /// takes ownership, execute request and return self back after execution. Need for reusing of channels
     fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)>;
+    /// just execute request, using &self. In most implementatinos it clones self
     fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
 }
 
 macro_rules! sender_impl {
     ($($res:ty = $client:ident : $method:ident ($req:ty), )+) => {
+        /// Trait that implement OwnedSender with all unary Requests/Response
         pub trait AnyRequestor: $(OwnedSender<$req,$res> + )+ Send {}
         $(
         impl OwnedSender<$req,$res> for Api {

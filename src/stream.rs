@@ -1,5 +1,5 @@
+//! Traits and implementations for opening server-side streams to API. Implements single method [StartStream::start_stream] for any possible stream-requests
 use std::time::Duration;
-
 use crate::t_types::market_data_stream_service_client::MarketDataStreamServiceClient;
 use crate::t_types::operations_stream_service_client::OperationsStreamServiceClient;
 use crate::t_types::orders_stream_service_client::OrdersStreamServiceClient;
@@ -43,8 +43,9 @@ macro_rules! ping_from_ping_settings {
     )+}
 }
 ping_from_ping_settings!(PortfolioStreamRequest, PositionsStreamRequest, MarketDataServerSideStreamRequest, );
-
+/// Main trait for stream requests
 pub trait StartStream<Req, T> {
+    /// Open stream with request. Implementation must reopen stream with same request when connection is lost.
     fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(&self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
 }
 
@@ -52,6 +53,7 @@ impl AnyStream<crate::StreamResponse> for Api {}
 
 macro_rules! start_stream_impl {
     ($($res:ty = $client:ident : $method:ident($req:ty),)+) => {
+        /// Trait that implement [StartStream] for all stream requests
         pub trait AnyStream<T>: $(StartStream<$req, T> +)+ Send where T: $( From<$res> +)+ Send + 'static {}
         $(
         impl<T> StartStream<$req, T> for Api where T: From<$res> + Send + 'static {

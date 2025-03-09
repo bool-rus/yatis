@@ -1,3 +1,4 @@
+//! Container for all stream responses with [From] implementation
 use crate::t_types::*;
 pub use order_state_stream_response::OrderState as OrderStateResponse;
 
