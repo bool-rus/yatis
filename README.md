@@ -11,10 +11,18 @@
     let api = Api::create_invest_service(token)?;
 ```
 
+### Creating sandbox api
+```rust
+    use yatis::*;
+    use t_types::*;
+    let token = std::env::var("TOKEN").expect("need to set env var 'TOKEN'");
+    let api = Sandbox::create_invest_service(token)?;
+```
+
 ### Unary requests
 
 ```rust
-    let share: ShareResponse = api.clone().request(InstrumentRequest{
+    let share: ShareResponse = api.request(InstrumentRequest{
         id_type:InstrumentIdType::Ticker.into(),
         class_code:Some("TQBR".to_string()),
         id:"T".to_string()
@@ -27,7 +35,7 @@
 ```rust
     let figi = "TCS80A107UL4".to_string(); //T-Techno shares
     let (s, mut r) = futures::channel::mpsc::channel::<StreamResponse>(10);
-    api.clone().start_stream(MarketDataServerSideStreamRequest {
+    api.start_stream(MarketDataServerSideStreamRequest {
         subscribe_last_price_request: Some(SubscribeLastPriceRequest {
             subscription_action: SubscriptionAction::Subscribe.into(),
             instruments: vec![LastPriceInstrument {figi,..Default::default()}],
@@ -53,6 +61,7 @@
 ## Goals
 
 - [x] Investing api implementation
+- [x] Single api trait for all operations (InvestApi)
 - [x] Unary operations (all)
 - [x] Pool of reusable connections
 - [x] Sandbox API with polymorphism (see examples)
