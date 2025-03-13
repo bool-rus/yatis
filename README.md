@@ -8,8 +8,8 @@ use t_types::*;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token = std::env::var("SANDBOX_TOKEN").expect("need to set env var 'TOKEN'");
-    let api = Api::create_invest_service(token)?; //creating api
-    //let api = SandboxApi::create_invest_service(token)?; //or sandbox api
+    let api = SandboxApi::create_invest_service(token)?; //creating sandbox api
+    //let api = Api::create_invest_service(token)?; //or production api
     trading(api).await
 }
 async fn trading(api: impl InvestApi) -> Result<(), Box<dyn std::error::Error>> {
@@ -53,10 +53,11 @@ async fn trading(api: impl InvestApi) -> Result<(), Box<dyn std::error::Error>> 
 
 - [x] Investing api implementation
 - [x] Single api trait for all operations `InvestApi`
-- [x] Unary operations (all)
+  - [x] Single method for all unary request: `request`
+  - [x] Single method for all serverside streams: `start_stream`
 - [x] Pool of reusable connections
 - [x] Sandbox API with polymorphism (see examples)
-- [x] Server side streams (all)
+- [x] Server side streams
   - [x] Authomatic reconnect on stucked connections
   - [x] Resubscribtion on reconnect
   - [ ] Connections limitation by tariff
@@ -64,6 +65,6 @@ async fn trading(api: impl InvestApi) -> Result<(), Box<dyn std::error::Error>> 
   - [ ] Balanced pool of streams
   - [ ] Authomatic reconnect on stucked connections
   - [ ] Resubscribtion on reconnect
-- [x] Arithmetic opertions with `Quotation` 
+- [x] Arithmetic opertions with `Quotation`
 
 [investAPI]: https://github.com/RussianInvestments/investAPI/tree/124813610a9dbb0d8c91067a67d9c26a02c8c713/src/docs/contracts
