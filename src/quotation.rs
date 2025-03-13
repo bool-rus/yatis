@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}};
 
 use crate::t_types::{MoneyValue, Quotation};
 
@@ -29,11 +29,11 @@ impl Sub for Quotation {
         to_quotation(this - rhs)
     }
 }
-impl Mul<i32> for Quotation {
+impl<Rhs: Into<i128>> Mul<Rhs> for Quotation {
     type Output = Quotation;
-    fn mul(self, rhs: i32) -> Self::Output {
+    fn mul(self, rhs: Rhs) -> Self::Output {
         let this = from_quotation(self);
-        to_quotation(this * rhs as i128)
+        to_quotation(this * rhs.into())
     }
 }
 impl Mul<Quotation> for Quotation {
@@ -44,11 +44,11 @@ impl Mul<Quotation> for Quotation {
         to_quotation(this * rhs / DIVIDER)
     }
 }
-impl Div<i32> for Quotation {
+impl<Rhs: Into<i128>> Div<Rhs> for Quotation {
     type Output = Quotation;
-    fn div(self, rhs: i32) -> Self::Output {
+    fn div(self, rhs: Rhs) -> Self::Output {
         let this = from_quotation(self);
-        to_quotation(this / rhs as i128)
+        to_quotation(this / rhs.into())
     }
 }
 impl Div<Quotation> for Quotation {
@@ -90,6 +90,11 @@ impl std::fmt::Display for Quotation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let fract: f32 = self.nano as f32 / DIVIDER as f32;
         write!(f, "{}", self.units as f32 + fract)
+    }
+}
+impl Sum for Quotation {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        to_quotation(iter.map(|x|from_quotation(x)).sum())
     }
 }
 
