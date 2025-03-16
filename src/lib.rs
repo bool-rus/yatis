@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 use requestor::AnyRequestor;
 use stream::AnyStream;
+use t_types::Quotation;
 use tonic::codec::CompressionEncoding::Gzip as GZIP;
 use tonic::service::interceptor::InterceptedService;
 use tonic::service::Interceptor;
@@ -129,3 +130,8 @@ pub use stream_response::StreamResponse;
 /// 
 pub trait InvestApi: AnyRequestor + AnyStream<StreamResponse> {}
 impl<T> InvestApi for T where T: AnyRequestor + AnyStream<StreamResponse> {}
+
+pub trait QuotationExt {
+    fn floor(&self, increment: Quotation) -> Self;
+    fn round(&self, increment: Quotation) -> Self;
+}

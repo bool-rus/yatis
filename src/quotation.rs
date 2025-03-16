@@ -1,6 +1,6 @@
 use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}};
 
-use crate::t_types::{MoneyValue, Quotation};
+use crate::{t_types::{MoneyValue, Quotation}, QuotationExt};
 
 
 const DIVIDER: i128 = 1_000_000_000;
@@ -109,4 +109,48 @@ impl From<f64> for Quotation {
     fn from(value: f64) -> Self {
         Quotation { units: value.trunc() as i64, nano: (value.fract() * DIVIDER as f64) as i32 }
     }
+}
+
+impl From<(i64, u32)> for Quotation {
+    fn from((m,e): (i64,u32)) -> Self {
+        q(m as i128, e)
+    }
+}
+
+impl QuotationExt for Quotation {
+    fn floor(&self, increment: Quotation) -> Self {
+        let mut del = *self/increment;
+        if del.nano == 0 {
+            return *self;
+        }
+        del.nano = 0;
+        del * increment
+    }
+
+    fn round(&self, increment: Quotation) -> Self {
+        let floor = self.floor(increment);
+        if (*self - floor) * 2 >= increment {
+            floor + increment
+        } else {
+            floor
+        }
+    }
+}
+fn q(m: i128, e: u32) -> Quotation {
+    to_quotation(m * DIVIDER/10i128.pow(e))
+}
+#[test]
+fn test_round() {
+    let x = q(11, 0);
+    let i = q(3,0);
+    assert_eq!(x.floor(i), q(9,0));
+    assert_eq!(x.round(i), q(12,0));
+
+    let i = q(3,1);
+    assert_eq!(x.floor(i), q(108,1));
+    assert_eq!(x.round(i), q(111,1));
+
+    let i = q(5, 1);
+    assert_eq!(x.floor(i), x);
+    assert_eq!(x.round(i), x);
 }
