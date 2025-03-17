@@ -5,11 +5,11 @@ use crate::Api;
 /// Auto implemented trait to send unary requests to grpc. Used for best type derivation. Uses [OwnedSender] implementation.
 pub trait Requestor<Req, Res> where Self: Sized {
     /// send unary request to grpc and process response
-    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
+    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> + Send;
 }
 
 impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>, Req: Send, Res: Send {
-    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> {
+    fn request(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>  + Send {
         self.send(req)
     }
 }
@@ -17,9 +17,9 @@ impl<Api, Req, Res> Requestor<Req, Res> for Api where Api: OwnedSender<Req, Res>
 /// Main trait for unary requests.
 pub trait OwnedSender<Req, Res> where Self: Sized {
     /// takes ownership, execute request and return self back after execution. Need for reusing of channels
-    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)>;
+    fn send_and_back(self, req: Req) -> impl Future<Output = (Self,Result<Res, tonic::Status>)> + Send;
     /// just execute request, using &self. In most implementatinos it clones self
-    fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>>;
+    fn send(&self, req: Req) -> impl Future<Output = Result<Res, tonic::Status>> + Send;
 }
 
 macro_rules! sender_impl {
