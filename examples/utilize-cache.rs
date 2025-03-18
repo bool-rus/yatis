@@ -1,39 +1,48 @@
+use anyhow::anyhow;
 use uuid::Uuid;
 use yatis::*;
 use yatis::t_types::*;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>>{
+async fn main() -> anyhow::Result<()>{
     let token = std::env::var("TOKEN").expect("need to set env var 'TOKEN'");
     let api = Api::create_invest_service(token)?;
-    algo(api).await?;
-    //start_algo(api).await?;
+    if let Err(e) = algo(api).await {
+        println!("error in algo: {e}");
+    };
     Ok(())
 }
 
-async fn algo(api: impl InvestApi + Clone) -> Result<(), Box<dyn std::error::Error>> {
+async fn algo(api: impl InvestApi + Clone) -> anyhow::Result<()> {
     let max_spread = Quotation::from((1,2)); //0.01
     let EtfResponse{ instrument  } = api.request(InstrumentRequest{ 
         id_type: InstrumentIdType::Ticker.into(), 
         class_code: Some("SPBRU".to_string()), 
         id: "TMON@".to_string() 
     }).await?;
-    let etf = instrument.ok_or("ETF TMON@ not found")?;
+    let etf = instrument.ok_or(anyhow!("ETF TMON@ not found"))?;
     let GetOrderBookResponse { bids, asks, instrument_uid, .. } = api.request(GetOrderBookRequest{ 
         depth: 1, instrument_id: Some(etf.uid), ..Default::default()
     }).await?;
-    let bid = bids.into_iter().next().map(|o|o.price).flatten().ok_or("no bids")?;
-    let ask = asks.into_iter().next().map(|o|o.price).flatten().ok_or("no asks")?;
+    let bid = bids.into_iter().next().map(|o|o.price).flatten().ok_or(anyhow!("no bids"))?;
+    let ask = asks.into_iter().next().map(|o|o.price).flatten().ok_or(anyhow!("no asks"))?;
     let sell_price = ask - max_spread;
     let buy_price = bid + max_spread;
     let GetAccountsResponse { accounts } = api.request(GetAccountsRequest::default()).await?;
-    for acc in accounts {
-        utilize_cache(api.clone(), acc.id, instrument_uid.clone(), sell_price, buy_price).await?;
+    let handles: Vec<_> = accounts.into_iter().map(|a|{
+        let api = api.clone();
+        let instrument_uid = instrument_uid.clone();
+        tokio::spawn(async move{utilize_cache(api, a.id, instrument_uid, sell_price, buy_price).await})
+    }).collect();
+    for h in handles {
+        if let Ok(Err(e)) = h.await {
+            println!("{e}");
+        }
     }
     Ok(())
 }
 
-async fn utilize_cache(api: impl InvestApi, account_id: String, instrument_id: String, sell: Quotation, buy: Quotation) -> Result<(), Box<dyn std::error::Error>> {
+async fn utilize_cache(api: impl InvestApi, account_id: String, instrument_id: String, sell: Quotation, buy: Quotation) -> anyhow::Result<()> {
     let PortfolioResponse { positions, account_id, .. } = api.request(PortfolioRequest{ account_id, currency: None }).await?;
     let mut rubs = None;
     let mut etfs = None;
@@ -45,7 +54,7 @@ async fn utilize_cache(api: impl InvestApi, account_id: String, instrument_id: S
             etfs = Some(p.quantity.unwrap_or_default() - p.blocked_lots.unwrap_or_default());
         }
     }
-    let rubs = rubs.ok_or("no rubs")?;
+    let rubs = rubs.ok_or(anyhow!("no rubles"))?;
     let etf_quantity = etfs.unwrap_or_default().units;
     let round = Quotation::from((1,0));
 

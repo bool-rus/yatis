@@ -1,6 +1,5 @@
 //! Simple rounding pool implementation
 use std::future::Future;
-use std::sync::Arc;
 
 use tokio::task::JoinHandle;
 
