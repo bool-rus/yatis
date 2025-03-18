@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use yatis::{t_types::GetInfoRequest, InvestApi};
+
 #[allow(deprecated)]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -19,10 +21,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ping_settings: Some(PingDelaySettings {ping_delay_ms: Some(5000)}),
         subscribe_candles_request: None, subscribe_order_book_request: None, subscribe_trades_request: None, subscribe_info_request: None,
     }, s).await?;
+    spawned_send(api);
     use futures::StreamExt;
     while let Some(response) = r.next().await {
         println!("{response:?}");
         //do not forget to set exit condition... if needed...
     }
     Ok(())
+}
+
+fn spawned_send(api: impl InvestApi ) {
+    use yatis::*;
+    tokio::task::spawn(async move {
+        let res = api.request(GetInfoRequest{}).await;
+        println!("{res:?}");
+    });
+
 }

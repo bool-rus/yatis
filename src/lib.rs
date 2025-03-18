@@ -128,8 +128,8 @@ pub use stream_response::StreamResponse;
 /// }
 /// ``` 
 /// 
-pub trait InvestApi: AnyRequestor + AnyStream<StreamResponse> {}
-impl<T> InvestApi for T where T: AnyRequestor + AnyStream<StreamResponse> {}
+pub trait InvestApi: AnyRequestor + AnyStream<StreamResponse> + Send + 'static {}
+impl<T> InvestApi for T where T: AnyRequestor + AnyStream<StreamResponse> + Send + 'static {}
 
 pub trait QuotationExt {
     fn floor(&self, increment: Quotation) -> Self;
