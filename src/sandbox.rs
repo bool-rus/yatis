@@ -132,8 +132,8 @@ sandbox_sender_impl![
 ];
 
 
-impl<Req, T> StartStream<Req,T> for Sandbox where Api: StartStream<Req, T> + Clone {
-    fn start_stream<S>(&self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> 
+impl<Req, T> StartStream<Req,T> for Sandbox where Api: StartStream<Req, T> + Clone, Req: Send {
+    fn start_stream<S>(&self, req: Req, sender: S) -> impl std::future::Future<Output=Result<tokio::task::JoinHandle<()>, tonic::Status>> + Send
     where S: futures::Sink<T> + Unpin + Send + 'static {
         Box::pin(async move {
             let Self(api) = self;

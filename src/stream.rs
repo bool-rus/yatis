@@ -46,7 +46,7 @@ ping_from_ping_settings!(PortfolioStreamRequest, PositionsStreamRequest, MarketD
 /// Main trait for stream requests
 pub trait StartStream<Req, T> {
     /// Open stream with request. Implementation must reopen stream with same request when connection is lost.
-    fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(&self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>>;
+    fn start_stream<S: futures::Sink<T> + Unpin + Send + 'static>(&self, req: Req, response_sender: S) -> impl std::future::Future<Output=Result<JoinHandle<()>, tonic::Status>> + Send;
 }
 
 impl AnyStream<crate::StreamResponse> for Api {}
