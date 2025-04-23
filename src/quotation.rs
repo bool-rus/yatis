@@ -111,6 +111,12 @@ impl From<f64> for Quotation {
     }
 }
 
+impl Into<f64> for Quotation {
+    fn into(self) -> f64 {
+        self.units as f64 + self.nano as f64/DIVIDER as f64
+    }
+}
+
 impl From<(i64, u32)> for Quotation {
     fn from((m,e): (i64,u32)) -> Self {
         q(m as i128, e)
