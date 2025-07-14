@@ -6,7 +6,7 @@ use t_types::*;
 async fn main() -> Result<(), Box<dyn Error>>{
     let token = std::env::var("SANDBOX_TOKEN").expect("need to set env var 'SANDBOX_TOKEN'");
     let api = SandboxApi::create_invest_service(token)?;
-    let name = "yatis test sanbox".to_owned();
+    let name = "yatis test sanbox 0.2.0".to_owned();
     let r = api.request(OpenSandboxAccountRequest{ name: Some(name.clone()) }).await?;
     let r = api.request(SandboxPayInRequest{ 
         account_id: r.account_id, 

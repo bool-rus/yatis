@@ -1,6 +1,6 @@
 [package]
 name = "yatis"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
 license = "Apache-2.0"
 keywords = ["investing", "invest", "t-bank", "tbank", "tinkoff"]
@@ -16,11 +16,11 @@ log = "0.4.26"
 prost = "0.13.5"
 prost-types = "0.13.5"
 tokio = "1.43.0"
-tonic = { version = "0.12.3", features = ["gzip", "tls", "tls-native-roots"] }
+tonic = { version = "0.13.1", features = ["gzip", "tls-ring", "tls-native-roots"] }
 uuid = { version = "1.14.0", features = ["v4"] }
 
 [build-dependencies]
-tonic-build = { version = "0.12" }
+tonic-build = "0.13.1"
 
 [dev-dependencies]
 anyhow = "1.0.97"
