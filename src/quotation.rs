@@ -1,9 +1,11 @@
 use std::{iter::Sum, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}};
 
+use rust_decimal::Decimal;
+
 use crate::{t_types::{MoneyValue, Quotation}, QuotationExt};
 
-
-const DIVIDER: i128 = 1_000_000_000;
+const DIVIDER_SCALE: u32 = 9;
+const DIVIDER: i128 = 10i128.pow(DIVIDER_SCALE);
 
 
 fn from_quotation(q: Quotation) -> i128 {
@@ -142,6 +144,40 @@ impl QuotationExt for Quotation {
         }
     }
 }
+
+impl Into<Decimal> for Quotation {
+    fn into(self) -> Decimal {
+        let v: i128 = from_quotation(self);
+        Decimal::from_i128_with_scale(v, DIVIDER_SCALE)
+    }
+}
+
+impl From<Decimal> for Quotation {
+    fn from(value: Decimal) -> Self {
+        q(value.mantissa(), value.scale())
+    }
+}
+
+#[test]
+fn test_fromdec() {
+    let d = Decimal::from_str_exact("1.25").unwrap();
+    let quot = Quotation::from(d);
+    assert_eq!(quot, Quotation::from(1.25f64));
+    let d = Decimal::from_str_exact("-1.256").unwrap();
+    let quot = Quotation::from(d);
+    assert_eq!(quot, Quotation::from(-1.256f64))
+}
+
+#[test]
+fn test_todec() {
+    let qq = Quotation::from(2.5);
+    let d: Decimal = qq.into();
+    assert_eq!(Decimal::from_str_exact("2.5").unwrap(), d);
+    let qq = Quotation::from(-2.5);
+    let d: Decimal = qq.into();
+    assert_eq!(Decimal::from_str_exact("-2.5").unwrap(), d);
+}
+
 fn q(m: i128, e: u32) -> Quotation {
     to_quotation(m * DIVIDER/10i128.pow(e))
 }
